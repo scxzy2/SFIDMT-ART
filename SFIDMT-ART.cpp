@@ -9,8 +9,8 @@ const double InputDomain = 1000.0;  //The size of the entire input domain
 const double Top = InputDomain / 3, Down = 0.0; //Upper and lower bounds of the entire input domain
 const double centre = (Top + Down) / 2; //Centre of the entire input domain
 const int candidateNum = 10; //The number of source candidates generated in each iteration
+//ofstream output1; //Outputs
 uniform_real_distribution<double> uRandom(Down, Top); //Used to generate source candidates
-ofstream output1, output2; //Outputs
 vector<double> Executedx, ExecutedxSource, ExecutedxFollow; //Executed test sets
 vector<int> CandidateSubdomainList, CandidateSubdomain, farthestCandidate; //Subdomain sets and distance sets
 double range = 0, Position = 0; //Size of subdomains and position of test cases in the input domain
@@ -19,8 +19,25 @@ double candidateSTC[candidateNum]; //Source candidate set
 double x1 = 0, x2 = 0, ret1 = 0, ret2 = 0; //Source input, follow-up input, source output and follow-up output
 int Random = 0, N = 0; //Represent the subdomain that is selected for new source candidate generation
 
-//Program tanh
+//Program tanh (Origin)
 double tanh1(double x) {
+	double epu, emu, dum, tanh1, x2;
+	epu = exp(x);
+	emu = 1.0 / epu; //correct
+	//emu = 10 / epu; //mutant 1
+	if (abs(x) < 0.1) { //correct
+	//if (abs(x) < 3.1) { //mutant 2
+		x2 = x * x;
+		dum = 1 + x2 / 6 * (1 + x2 / 20 * (1 + x2 / 42 * (1 + x2 / 72)));
+		tanh1 = 2 * x * dum / (epu + emu);
+	}
+	else
+		tanh1 = (epu - emu) / (epu + emu);
+	return tanh1;
+}
+
+//Program tanh (mutant 1)
+double tanh1Mutant1(double x) {
 	double epu, emu, dum, tanh1, x2;
 	epu = exp(x);
 	//emu = 1.0 / epu; //correct
@@ -36,31 +53,54 @@ double tanh1(double x) {
 	return tanh1;
 }
 
+//Program tanh (mutant 2)
+double tanh1Mutant2(double x) {
+	double epu, emu, dum, tanh1, x2;
+	epu = exp(x);
+	emu = 1.0 / epu; //correct
+	//emu = 10 / epu; //mutant 1
+	//if (abs(x) < 0.1) { //correct
+	if (abs(x) < 3.1) { //mutant 2
+		x2 = x * x;
+		dum = 1 + x2 / 6 * (1 + x2 / 20 * (1 + x2 / 42 * (1 + x2 / 72)));
+		tanh1 = 2 * x * dum / (epu + emu);
+	}
+	else
+		tanh1 = (epu - emu) / (epu + emu);
+	return tanh1;
+}
+
 //Initialize the test sets
 void initialize() {
 	Executedx.clear(); ExecutedxSource.clear(); ExecutedxFollow.clear();
 }
 
 //Random Testing
-int RT(int randomNumber) {
+int RT(int randomNumber, int mutantNum) {
 	default_random_engine e1(randomNumber);
 	for (int n = 1; n <= 100000; n++) {
 		//generate STCs and FTCs
 		x1 = uRandom(e1);
 		x2 = 3 * x1;
 		//execution
-		ret1 = tanh1(x1);
-		ret2 = tanh1(x2);
+		if (mutantNum == 1) {
+			ret1 = tanh1Mutant1(x1);
+			ret2 = tanh1Mutant1(x2);
+		}
+		else {
+			ret1 = tanh1Mutant2(x1);
+			ret2 = tanh1Mutant2(x2);
+		}
 		if (fabs((ret1 * ret1 * ret1 + 3 * ret1) / (1 + 3 * ret1 * ret1) - ret2) > EPS) {
-			output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
+			//output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
 			return n;
 		}
-		output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
+		//output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
 	}
 	return 100000;
 }
 
-int MTARTMin(int randomNumber) {
+int MTARTMin(int randomNumber, int mutantNum) {
 	// Random generator seed
 	default_random_engine e1(randomNumber);
 	unsigned seed = randomNumber;
@@ -162,13 +202,19 @@ int MTARTMin(int randomNumber) {
 		//generate FTCs
 		x2 = 3 * x1;
 		//execution
-		ret1 = tanh1(x1);
-		ret2 = tanh1(x2);
+		if (mutantNum == 1) {
+			ret1 = tanh1Mutant1(x1);
+			ret2 = tanh1Mutant1(x2);
+		}
+		else {
+			ret1 = tanh1Mutant2(x1);
+			ret2 = tanh1Mutant2(x2);
+		}
 		if (fabs((ret1 * ret1 * ret1 + 3 * ret1) / (1 + 3 * ret1 * ret1) - ret2) > EPS) {
-			output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
+			//output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
 			return n;
 		}
-		output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
+		//output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
 		//Add the executed test cases into the corresponding test sets
 		//Includes all executed STCs and FTCs
 		Executedx.push_back(x1);
@@ -182,7 +228,7 @@ int MTARTMin(int randomNumber) {
 	return 100000;
 }
 
-int MTARTMax(int randomNumber) {
+int MTARTMax(int randomNumber, int mutantNum) {
 	//random generator seed
 	default_random_engine e1(randomNumber);
 	unsigned seed = randomNumber;
@@ -284,13 +330,19 @@ int MTARTMax(int randomNumber) {
 		//generate FTCs
 		x2 = 3 * x1;
 		//execution
-		ret1 = tanh1(x1);
-		ret2 = tanh1(x2);
+		if (mutantNum == 1) {
+			ret1 = tanh1Mutant1(x1);
+			ret2 = tanh1Mutant1(x2);
+		}
+		else {
+			ret1 = tanh1Mutant2(x1);
+			ret2 = tanh1Mutant2(x2);
+		}
 		if (fabs((ret1 * ret1 * ret1 + 3 * ret1) / (1 + 3 * ret1 * ret1) - ret2) > EPS) {
-			output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
+			//output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
 			return n;
 		}
-		output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
+		//output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
 		//add the executed test cases into the corresponding test sets
 		//include all executed STCs and FTCs
 		Executedx.push_back(x1);
@@ -304,7 +356,7 @@ int MTARTMax(int randomNumber) {
 	return 100000;
 }
 
-int MTARTAve(int randomNumber) {
+int MTARTAve(int randomNumber, int mutantNum) {
 	//random generator seed
 	default_random_engine e1(randomNumber);
 	unsigned seed = randomNumber;
@@ -391,13 +443,19 @@ int MTARTAve(int randomNumber) {
 		//generate FTCs
 		x2 = 3 * x1;
 		//execution
-		ret1 = tanh1(x1);
-		ret2 = tanh1(x2);
+		if (mutantNum == 1) {
+			ret1 = tanh1Mutant1(x1);
+			ret2 = tanh1Mutant1(x2);
+		}
+		else {
+			ret1 = tanh1Mutant2(x1);
+			ret2 = tanh1Mutant2(x2);
+		}
 		if (fabs((ret1 * ret1 * ret1 + 3 * ret1) / (1 + 3 * ret1 * ret1) - ret2) > EPS) {
-			output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
+			//output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
 			return n;
 		}
-		output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
+		//output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
 		//add the executed test cases into the corresponding test sets
 		//includes all executed STCs and FTCs
 		Executedx.push_back(x1);
@@ -411,7 +469,7 @@ int MTARTAve(int randomNumber) {
 	return 100000;
 }
 
-int SFIDMTART(int randomNumber) {
+int SFIDMTART(int randomNumber, int mutantNum) {
 	//random generator seed
 	default_random_engine e1(randomNumber);
 	unsigned seed = randomNumber;  
@@ -494,13 +552,19 @@ int SFIDMTART(int randomNumber) {
 		//generate FTCs
 		x2 = 3 * x1;
 		//execution
-		ret1 = tanh1(x1);
-		ret2 = tanh1(x2);
+		if (mutantNum == 1) {
+			ret1 = tanh1Mutant1(x1);
+			ret2 = tanh1Mutant1(x2);
+		}
+		else {
+			ret1 = tanh1Mutant2(x1);
+			ret2 = tanh1Mutant2(x2);
+		}
 		if (fabs((ret1 * ret1 * ret1 + 3 * ret1) / (1 + 3 * ret1 * ret1) - ret2) > EPS) {
-			output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
+			//output1 << "Violate: " << x1 << " " << x2 << endl; //output the STC and FTC that violate the MR
 			return n;
 		}
-		output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
+		//output1 << x1 << " " << x2 << endl; //output the generated STCs and FTCs
 		//add the executed STCs and FTCs into the corresponding test sets
 		ExecutedxSource.push_back(x1); ExecutedxFollow.push_back(x2);
 	}
@@ -508,16 +572,31 @@ int SFIDMTART(int randomNumber) {
 }
 
 int main() {
-	output1.open("D:/Desktop/tanh1RTTestCase.txt"); //outputs test cases. Format: STC FTC
-	output2.open("D:/Desktop/tanh1RTFmeasure.txt"); //outputs F-measure
-	int numTemp; //store the F-measure values
+	//output.open("tanh1RTTestCase.txt"); //outputs test cases. Format: STC FTC
+	int TempRT1 = 0, TempMax1 = 0, TempAve1 = 0, TempMin1 = 0, TempSFID1 = 0; //store the F-measure values
+	int TempRT2 = 0, TempMax2 = 0, TempAve2 = 0, TempMin2 = 0, TempSFID2 = 0; //store the F-measure values
 	for (int m = 0; m < 10000; m++) {
-		output1 << "Round " << m << ":" << endl;
-		numTemp = RT(m);
-		//numTemp = MTARTMin(m);
-		//numTemp = MTARTMax(m);
-		//numTemp = MTARTAve(m);
-		//numTemp = SFIDMTART(m);
-		output2 << numTemp << endl; //outputs F-measure values
+		TempRT1 += RT(m, 1); //execute against mutant 1
+		TempMax1 += MTARTMax(m, 1); //execute against mutant 1
+		TempAve1 += MTARTAve(m, 1); //execute against mutant 1
+		TempMin1 += MTARTMin(m, 1); //execute against mutant 1
+		TempSFID1 += SFIDMTART(m, 1); //execute against mutant 1
+		
+		TempRT2 += RT(m, 2); //execute against mutant 2
+		TempMax2 += MTARTMax(m, 2); //execute against mutant 2
+		TempAve2 += MTARTAve(m, 2); //execute against mutant 2
+		TempMin2 += MTARTMin(m, 2); //execute against mutant 2
+		TempSFID2 += SFIDMTART(m, 2); //execute against mutant 2
 	}
+	cout << "Mean F-measure of RT (mutant 1): " << TempRT1 / 10000 << endl; //outputs F-RT values
+	cout << "Mean F-measure of MT-ART-Max (mutant 1): " << TempMax1 / 10000 << endl; //outputs F-MTARTMax values
+	cout << "Mean F-measure of MT-ART-Ave (mutant 1): " << TempAve1 / 10000 << endl; //outputs F-MTARTAve values
+	cout << "Mean F-measure of MT-ART-Min (mutant 1): " << TempMin1 / 10000 << endl; //outputs F-MTARTMin values
+	cout << "Mean F-measure of SFIDMT-ART (mutant 1): " << TempSFID1 / 10000 << endl; //outputs F-SFIDMTART values
+	
+	cout << "Mean F-measure of RT (mutant 2): " << TempRT2 / 10000 << endl; //outputs F-RT values
+	cout << "Mean F-measure of MT-ART-Max (mutant 2): " << TempMax2 / 10000 << endl; //outputs F-MTARTMax values
+	cout << "Mean F-measure of MT-ART-Ave (mutant 2): " << TempAve2 / 10000 << endl; //outputs F-MTARTAve values
+	cout << "Mean F-measure of MT-ART-Min (mutant 2): " << TempMin2 / 10000 << endl; //outputs F-MTARTMin values
+	cout << "Mean F-measure of SFIDMT-ART (mutant 2): " << TempSFID2 / 10000 << endl; //outputs F-SFIDMTART values
 }
